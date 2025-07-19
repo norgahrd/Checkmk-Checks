@@ -51,14 +51,21 @@ def _file_filter(tarinfo):
 
 
 
-def pack_suptar(package_name, sub_name, sub_path):
+def pack_suptar(path, folder_name, files):
     """
     Helper to create the suptar
     """
-    sub_filename = sub_name + ".tar"
+    sub_filename = folder_name + ".tar"
     sub_obj = io.BytesIO()
+    path = (
+        path
+        if folder_name == "cmk_addons_plugins"
+        and not os.path.exists(f"{path}/cmk_addons_plugins")
+        else f"{path}/{folder_name}"
+    )
     with tarfile.open(sub_filename, "w:", fileobj=sub_obj) as subtar:
-        subtar.add(f"{package_name}/src/{sub_path}", sub_path, filter=_file_filter)
+        for file in files:
+            subtar.add(f"{path}/{file}", file, filter=_file_filter)
 
     sub_obj.seek(0)
     tar_info = get_tar_info(sub_filename, sub_obj)
@@ -76,9 +83,6 @@ def pack(package_name):
 
     #Pack Subfolders
     mkp_filename = package_name+f"/{info_dict['name']}-{info_dict['version']}.mkp"
-    dirs = {
-        'cmk_addons_plugins': f"{package_name}",
-    }
     with tarfile.open(mkp_filename, "w:gz") as tar:
         tar.add(path+'/info', 'info')
 
@@ -89,9 +93,9 @@ def pack(package_name):
         tar.addfile(tar_info, info_obj)
 
         # New part:
-        for folder_name, sub_path in dirs.items():
-            if (folder_name in info_dict['files'] and info_dict['files'][folder_name]):
-                sub_obj, tar_info = pack_suptar(package_name, folder_name, sub_path)
+        for folder_name, files in info_dict['files'].items():
+            if (info_dict['files'][folder_name]):
+                sub_obj, tar_info = pack_subtar(path, folder_name, files)
                 tar.addfile(tar_info, sub_obj)
 def unpack(mkp_path):
     """
